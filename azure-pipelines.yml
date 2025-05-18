@@ -5,8 +5,8 @@ trigger:
 pool:
   vmImage: 'ubuntu-latest'  # Use Microsoft-hosted Ubuntu agent
 
-variable_groups:
-  - aws-vm-credentials  # Variable group containing vmHost, vmUsername, vmSshPrivateKey
+#variable_groups:
+ # - aws-vm-credentials  # Variable group containing vmHost, vmUsername, vmSshPrivateKey
 
 variables:
   imageName: 'LMS'  # Name of the Docker image
