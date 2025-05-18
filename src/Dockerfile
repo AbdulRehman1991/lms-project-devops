@@ -9,4 +9,4 @@ COPY . .
 # Set DISPLAY environment variable for X11
 ENV DISPLAY=host.docker.internal:0.0
 
-CMD ["python", "main.py"]
+CMD ["python.exe", "main.py"]
