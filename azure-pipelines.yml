@@ -1,0 +1,53 @@
+# Azure Pipeline to build a Docker image and deploy it to an AWS EC2 VM via SSH
+trigger:
+  - main  # Trigger on commits to the main branch
+
+pool:
+  vmImage: 'ubuntu-latest'  # Use Microsoft-hosted Ubuntu agent
+
+variable_groups:
+  - aws-vm-credentials  # Variable group containing vmHost, vmUsername, vmSshPrivateKey
+
+variables:
+  imageName: 'LMS'  # Name of the Docker image
+  imageTag: '$(Build.BuildId)'  # Use build ID as tag for uniqueness
+  outputFolder: 'docker_output'  # Folder to store the .tar file
+  outputFile: 'LMS-$(Build.BuildId).tar'  # Name of the output .tar file
+  remotePath: '/home/$(vmUsername)/docker_images'  # Remote folder on VM
+  containerName: 'LMS-container'  # Name of the running container
+
+steps:
+  - task: Docker@2
+    displayName: 'Build Docker image'
+    inputs:
+      command: 'build'
+      Dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+      repository: '$(imageName)'
+      tags: '$(imageTag)'
+
+  - script: |
+      mkdir -p $(outputFolder)
+      docker save -o $(outputFolder)/$(outputFile) $(imageName):$(imageTag)
+    displayName: 'Save Docker image to .tar file'
+
+  - task: CopyFilesOverSSH@0
+    displayName: 'Copy Docker image .tar to AWS VM'
+    inputs:
+      sshEndpoint: 'aws-vm-ssh'  # SSH service connection name
+      sourceFolder: '$(outputFolder)'
+      contents: '$(outputFile)'
+      targetFolder: '$(remotePath)'
+      cleanTargetFolder: false
+      overWrite: true
+
+  - task: SSH@0
+    displayName: 'Load and run Docker image on AWS VM'
+    inputs:
+      sshEndpoint: 'aws-vm-ssh'  # SSH service connection name
+      runOptions: 'commands'
+      commands: |
+        mkdir -p $(remotePath)
+        docker load -i $(remotePath)/$(outputFile)
+        docker stop $(containerName) || true
+        docker rm $(containerName) || true
+        docker run -d --name $(containerName) -p 5000:5000 $(imageName):$(imageTag)
