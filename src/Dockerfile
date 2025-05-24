@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy application files from src directory
-COPY src/ .
+COPY . .
 
 # Install Python dependencies (if any)
 # RUN pip install -r requirements.txt (uncomment if requirements.txt exists)
