@@ -1,4 +1,4 @@
-import tkinter as tk
+import tkinter as tk # Main GUI library
 from tkinter import ttk, messagebox, simpledialog
 from authent import authenticate_user
 from book import Book, BookManager
