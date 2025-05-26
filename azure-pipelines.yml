@@ -2,7 +2,6 @@ trigger:
   branches:
     include:
       - main
-
 pool:
   vmImage: 'ubuntu-latest' # Build agent is Ubuntu-based
 
@@ -62,18 +61,32 @@ steps:
         exec > /home/ubuntu/docker_deploy.log 2>&1
         
         # Ensure remote directory exists
-        sudo mkdir -p $(remotePath)
+        mkdir -p $(remotePath)
         echo "Directory $(remotePath) ensured."
         
-        # Verify X11 environment
+        # Ensure Docker is installed and user has permissions
+        echo "Installing Docker if not present..."
+        if ! command -v docker > /dev/null; then
+          sudo apt update
+          sudo apt install -y docker.io
+          sudo systemctl start docker
+          sudo systemctl enable docker
+        fi
+        echo "Adding ubuntu user to docker group..."
+        sudo usermod -a -G docker ubuntu
+        newgrp docker || true
+        echo "Docker setup complete."
+        
+        # Install Xvfb and x11vnc if not present
         echo "Checking X11 environment..."
         if ! command -v Xvfb > /dev/null; then
-          echo "Error: Xvfb not installed. Please install xvfb."
-          exit 1
+          echo "Installing Xvfb..."
+          sudo apt update
+          sudo apt install -y xvfb
         fi
         if ! pgrep Xvfb > /dev/null; then
           echo "Starting Xvfb on display :99..."
-          sudo Xvfb :99 -screen 0 1024x768x16 &
+          Xvfb :99 -screen 0 1024x768x16 &
           sleep 3
           if ! pgrep Xvfb > /dev/null; then
             echo "Error: Failed to start Xvfb."
@@ -86,16 +99,15 @@ steps:
         export DISPLAY=:99
         echo "DISPLAY set to $DISPLAY"
         
-        # Install and start x11vnc
         echo "Checking x11vnc installation..."
         if ! command -v x11vnc > /dev/null; then
           echo "Installing x11vnc..."
           sudo apt update
-          sudo apt install x11vnc -y
+          sudo apt install -y x11vnc
         fi
         echo "Starting x11vnc on display :99..."
-        sudo pkill x11vnc || true  # Stop any existing x11vnc
-        sudo x11vnc -display :99 -forever -nopw &
+        pkill x11vnc || true
+        x11vnc -display :99 -forever -nopw &
         sleep 2
         if ! pgrep x11vnc > /dev/null; then
           echo "Error: Failed to start x11vnc."
@@ -103,21 +115,21 @@ steps:
         fi
         echo "x11vnc started successfully."
         
-        # Stop and remove existing container
+        # Stop and remove existing container (ignore if not exists)
         echo "Checking for existing container..."
-        if sudo docker ps -a -q -f name=$(containerName); then
+        if docker ps -a -q -f name=$(containerName); then
           echo "Stopping and removing container $(containerName)..."
-          sudo docker stop $(containerName) || { echo "Error stopping container"; exit 1; }
-          sudo docker rm $(containerName) || { echo "Error removing container"; exit 1; }
+          docker stop $(containerName) || true
+          docker rm $(containerName) || true
         else
           echo "No existing container found."
         fi
         
         # Remove existing image to avoid conflicts
         echo "Checking for existing image..."
-        if sudo docker image inspect $(imageName):$(imageTag) > /dev/null 2>&1; then
+        if docker image inspect $(imageName):$(imageTag) > /dev/null 2>&1; then
           echo "Removing image $(imageName):$(imageTag)..."
-          sudo docker rmi $(imageName):$(imageTag) || { echo "Error removing image"; exit 1; }
+          docker rmi $(imageName):$(imageTag) || { echo "Error removing image"; exit 1; }
         else
           echo "No existing image found."
         fi
@@ -125,7 +137,7 @@ steps:
         # Load the new Docker image with retry
         echo "Loading image from $(remotePath)/$(outputFile)..."
         for attempt in {1..3}; do
-          if sudo docker load -i $(remotePath)/$(outputFile); then
+          if docker load -i $(remotePath)/$(outputFile); then
             echo "Image loaded successfully."
             break
           else
@@ -140,10 +152,11 @@ steps:
         
         # Run the container with X11 support for Tkinter
         echo "Starting container $(containerName)..."
-        sudo docker run -d --name $(containerName) \
+        docker run -d --name $(containerName) \
           -e DISPLAY=$DISPLAY \
+          -v /tmp/.X11-unix:/tmp/.X11-unix \
           --network host \
           $(imageName):$(imageTag) || { echo "Error starting container"; exit 1; }
         
         echo "Container started successfully."
-      readyTimeout: '60000' # Increased timeout for SSH reliability
+      readyTimeout: '120000' # Increased timeout for SSH reliability
