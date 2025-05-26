@@ -1,20 +1,16 @@
-# Azure Pipeline to build a Docker image and deploy it to an AWS EC2 VM via SSH
 trigger:
-  - main  # Trigger on commits to the main branch
+  - main
 
 pool:
-  vmImage: 'ubuntu-latest'  # Use Microsoft-hosted Ubuntu agent
-
-#variable_groups:
- # - aws-vm-credentials  # Variable group containing vmHost, vmUsername, vmSshPrivateKey
+  vmImage: 'ubuntu-latest'
 
 variables:
-  imageName: 'lms'  # Name of the Docker image
-  imageTag: '$(Build.BuildId)'  # Use build ID as tag for uniqueness
-  outputFolder: 'docker_output'  # Folder to store the .tar file
-  outputFile: 'lms-$(Build.BuildId).tar'  # Name of the output .tar file
-  remotePath: '/home/$(vmUsername)/docker_images'  # Remote folder on VM
-  containerName: 'lms-container'  # Name of the running container
+  imageName: 'lms'
+  imageTag: '$(Build.BuildId)'
+  outputFolder: 'docker_output'
+  outputFile: 'lms-$(Build.BuildId).tar'
+  remotePath: '/home/$(vmUsername)/docker_images'
+  containerName: 'lms-container'
 
 steps:
   - task: Docker@2
@@ -28,12 +24,12 @@ steps:
   - script: |
       mkdir -p $(outputFolder)
       docker save -o $(outputFolder)/$(outputFile) $(imageName):$(imageTag)
-    displayName: 'Save Docker image to .tar file'
+    displayName: 'Save Docker image to tar'
 
   - task: CopyFilesOverSSH@0
-    displayName: 'Copy Docker image .tar to AWS VM'
+    displayName: 'Copy Docker image to EC2'
     inputs:
-      sshEndpoint: 'aws-vm-ssh'  # SSH service connection name
+      sshEndpoint: 'aws-vm-ssh'
       sourceFolder: '$(outputFolder)'
       contents: '$(outputFile)'
       targetFolder: '$(remotePath)'
@@ -41,13 +37,69 @@ steps:
       overWrite: true
 
   - task: SSH@0
-    displayName: 'Load and run Docker image on AWS VM'
+    displayName: 'Deploy Docker image on EC2'
     inputs:
-      sshEndpoint: 'aws-vm-ssh'  # SSH service connection name
+      sshEndpoint: 'aws-vm-ssh'
       runOptions: 'commands'
       commands: |
         sudo mkdir -p $(remotePath)
         sudo docker load -i $(remotePath)/$(outputFile)
         sudo docker stop $(containerName) || true
         sudo docker rm $(containerName) || true
-        sudo docker run -d --name $(containerName) -p 5004:5000 $(imageName):$(imageTag)
+        sudo docker run -d --name $(containerName) -p 5000:5000 $(imageName):$(imageTag)
+
+
+#--------------------------------------------------------------------------------
+# # Azure Pipeline to build a Docker image and deploy it to an AWS EC2 VM via SSH
+# trigger:
+#   - main  # Trigger on commits to the main branch
+
+# pool:
+#   vmImage: 'ubuntu-latest'  # Use Microsoft-hosted Ubuntu agent
+
+# #variable_groups:
+#  # - aws-vm-credentials  # Variable group containing vmHost, vmUsername, vmSshPrivateKey
+
+# variables:
+#   imageName: 'lms'  # Name of the Docker image
+#   imageTag: '$(Build.BuildId)'  # Use build ID as tag for uniqueness
+#   outputFolder: 'docker_output'  # Folder to store the .tar file
+#   outputFile: 'lms-$(Build.BuildId).tar'  # Name of the output .tar file
+#   remotePath: '/home/$(vmUsername)/docker_images'  # Remote folder on VM
+#   containerName: 'lms-container'  # Name of the running container
+
+# steps:
+#   - task: Docker@2
+#     displayName: 'Build Docker image'
+#     inputs:
+#       command: 'build'
+#       Dockerfile: '$(Build.SourcesDirectory)/src/Dockerfile'
+#       repository: '$(imageName)'
+#       tags: '$(imageTag)'
+
+#   - script: |
+#       mkdir -p $(outputFolder)
+#       docker save -o $(outputFolder)/$(outputFile) $(imageName):$(imageTag)
+#     displayName: 'Save Docker image to .tar file'
+
+#   - task: CopyFilesOverSSH@0
+#     displayName: 'Copy Docker image .tar to AWS VM'
+#     inputs:
+#       sshEndpoint: 'aws-vm-ssh'  # SSH service connection name
+#       sourceFolder: '$(outputFolder)'
+#       contents: '$(outputFile)'
+#       targetFolder: '$(remotePath)'
+#       cleanTargetFolder: false
+#       overWrite: true
+
+#   - task: SSH@0
+#     displayName: 'Load and run Docker image on AWS VM'
+#     inputs:
+#       sshEndpoint: 'aws-vm-ssh'  # SSH service connection name
+#       runOptions: 'commands'
+#       commands: |
+#         sudo mkdir -p $(remotePath)
+#         sudo docker load -i $(remotePath)/$(outputFile)
+#         sudo docker stop $(containerName) || true
+#         sudo docker rm $(containerName) || true
+#         sudo docker run -d --name $(containerName) -p 5004:5000 $(imageName):$(imageTag)
