@@ -44,6 +44,7 @@ steps:
       commands: |
         sudo mkdir -p $(remotePath)
         sudo docker load -i $(remotePath)/$(outputFile)
+<<<<<<< HEAD
         sudo docker stop $(containerName) || true
         sudo docker rm $(containerName) || true
         sudo docker run -d --name $(containerName) -p 5000:5000 $(imageName):$(imageTag)
@@ -103,3 +104,6 @@ steps:
 #         sudo docker stop $(containerName) || true
 #         sudo docker rm $(containerName) || true
 #         sudo docker run -d --name $(containerName) -p 5004:5000 $(imageName):$(imageTag)
+=======
+        sudo docker run -d --name $(containerName) -p 5000:5000 $(imageName):$(imageTag)
+>>>>>>> c0f95f79fbb45b25fc807188050475f5d4241660
