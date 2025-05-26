@@ -64,15 +64,24 @@ steps:
         sudo chown ec2-user:ec2-user $(remotePath)
         echo "Directory $(remotePath) ensured."
         
-        # Enable EPEL repository for x11vnc (if needed)
+        # Install dnf-utils for dnf config-manager
+        echo "Installing dnf-utils..."
+        sudo dnf install -y dnf-utils || { echo "Error: Failed to install dnf-utils."; exit 1; }
+        
+        # Enable EPEL repository for Amazon Linux 2023 (RHEL 9 compatible)
         echo "Enabling EPEL repository..."
-        sudo yum install -y epel-release || { echo "Error: Failed to install epel-release."; exit 1; }
+        if ! rpm -q epel-release > /dev/null 2>&1; then
+          sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm || { echo "Error: Failed to install epel-release."; exit 1; }
+          sudo dnf config-manager --enable epel || { echo "Error: Failed to enable EPEL repository."; exit 1; }
+        else
+          echo "EPEL repository already installed."
+        fi
         
         # Install Xvfb if not present
         echo "Checking X11 environment..."
         if ! command -v Xvfb > /dev/null; then
           echo "Installing Xvfb..."
-          sudo yum install -y xorg-x11-server-Xvfb || { echo "Error: Failed to install Xvfb."; exit 1; }
+          sudo dnf install -y xorg-x11-server-Xvfb || { echo "Error: Failed to install Xvfb."; exit 1; }
         fi
         
         # Start Xvfb if not running
@@ -95,7 +104,7 @@ steps:
         echo "Checking x11vnc installation..."
         if ! command -v x11vnc > /dev/null; then
           echo "Installing x11vnc..."
-          sudo yum install -y x11vnc || { echo "Error: Failed to install x11vnc."; exit 1; }
+          sudo dnf install -y x11vnc || { echo "Error: Failed to install x11vnc. Consider using tigervnc-server as an alternative."; exit 1; }
         fi
         echo "Starting x11vnc on display :99..."
         sudo pkill x11vnc || true
