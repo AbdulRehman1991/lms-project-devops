@@ -44,7 +44,7 @@ steps:
   displayName: 'Copy Docker Image to AWS EC2'
   inputs:
     sshEndpoint: '$(awsEc2SshConnection)'
-    sourceFolder: '$(outputFolder)'
+    sourceFolder: '$(Build.SourcesDirectory)/$(outputFolder)'
     contents: '$(outputFile)'
     targetFolder: '$(remotePath)'
     cleanTargetFolder: false
