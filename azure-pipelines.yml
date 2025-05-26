@@ -64,19 +64,6 @@ steps:
         sudo chown ec2-user:ec2-user $(remotePath)
         echo "Directory $(remotePath) ensured."
         
-        # Install dnf-utils for dnf config-manager
-        echo "Installing dnf-utils..."
-        sudo dnf install -y dnf-utils || { echo "Error: Failed to install dnf-utils."; exit 1; }
-        
-        # Enable EPEL repository for Amazon Linux 2023 (RHEL 9 compatible)
-        echo "Enabling EPEL repository..."
-        if ! rpm -q epel-release > /dev/null 2>&1; then
-          sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm || { echo "Error: Failed to install epel-release."; exit 1; }
-          sudo dnf config-manager --enable epel || { echo "Error: Failed to enable EPEL repository."; exit 1; }
-        else
-          echo "EPEL repository already installed."
-        fi
-        
         # Install Xvfb if not present
         echo "Checking X11 environment..."
         if ! command -v Xvfb > /dev/null; then
@@ -100,21 +87,21 @@ steps:
         export DISPLAY=:99
         echo "DISPLAY set to $DISPLAY"
         
-        # Install and start x11vnc
-        echo "Checking x11vnc installation..."
-        if ! command -v x11vnc > /dev/null; then
-          echo "Installing x11vnc..."
-          sudo dnf install -y x11vnc || { echo "Error: Failed to install x11vnc. Consider using tigervnc-server as an alternative."; exit 1; }
+        # Install and start tigervnc-server
+        echo "Checking tigervnc-server installation..."
+        if ! command -v vncserver > /dev/null; then
+          echo "Installing tigervnc-server..."
+          sudo dnf install -y tigervnc-server || { echo "Error: Failed to install tigervnc-server."; exit 1; }
         fi
-        echo "Starting x11vnc on display :99..."
-        sudo pkill x11vnc || true
-        sudo x11vnc -display :99 -forever -nopw &
+        echo "Starting vncserver on display :99..."
+        sudo pkill Xvnc || true
+        sudo vncserver :99 -geometry 1024x768 -depth 16 -nolisten tcp -localhost no &
         sleep 2
-        if ! pgrep x11vnc > /dev/null; then
-          echo "Error: Failed to start x11vnc."
+        if ! pgrep Xvnc > /dev/null; then
+          echo "Error: Failed to start vncserver."
           exit 1
         fi
-        echo "x11vnc started successfully."
+        echo "vncserver started successfully."
         
         # Stop and remove existing container
         echo "Checking for existing container..."
