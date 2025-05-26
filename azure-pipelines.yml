@@ -64,12 +64,15 @@ steps:
         sudo chown ec2-user:ec2-user $(remotePath)
         echo "Directory $(remotePath) ensured."
         
+        # Enable EPEL repository for x11vnc (if needed)
+        echo "Enabling EPEL repository..."
+        sudo yum install -y epel-release || { echo "Error: Failed to install epel-release."; exit 1; }
+        
         # Install Xvfb if not present
         echo "Checking X11 environment..."
         if ! command -v Xvfb > /dev/null; then
           echo "Installing Xvfb..."
-          sudo apt update
-          sudo apt install xvfb -y || { echo "Error: Failed to install xvfb."; exit 1; }
+          sudo yum install -y xorg-x11-server-Xvfb || { echo "Error: Failed to install Xvfb."; exit 1; }
         fi
         
         # Start Xvfb if not running
@@ -92,8 +95,7 @@ steps:
         echo "Checking x11vnc installation..."
         if ! command -v x11vnc > /dev/null; then
           echo "Installing x11vnc..."
-          sudo apt update
-          sudo apt install x11vnc -y || { echo "Error: Failed to install x11vnc."; exit 1; }
+          sudo yum install -y x11vnc || { echo "Error: Failed to install x11vnc."; exit 1; }
         fi
         echo "Starting x11vnc on display :99..."
         sudo pkill x11vnc || true
