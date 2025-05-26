@@ -2,17 +2,17 @@ trigger:
   - main
 
 pool:
-  vmImage: 'ubuntu-latest' # Build agent is Ubuntu-based
+  vmImage: 'ubuntu-latest'
 
 variables:
-  imageName: 'library-management-system' # Name of the Docker image
-  imageTag: '$(Build.BuildId)' # Use build ID for versioning
-  outputFolder: 'docker_output' # Folder for .tar file
-  outputFile: 'lms-$(Build.BuildId).tar' # Name of .tar file
-  remotePath: '/home/ec2-user/docker_images' # EC2 destination path for Ubuntu user
-  containerName: 'lms-container' # Container name on EC2
-  awsEc2SshConnection: 'aws-vm-ssh' # Azure DevOps SSH service connection
-  ec2User: 'ec2-user' # SSH user for Ubuntu EC2
+  imageName: 'library-management-system'
+  imageTag: '$(Build.BuildId)'
+  outputFolder: 'docker_output'
+  outputFile: 'lms-$(Build.BuildId).tar'
+  remotePath: '/home/ec2-user/docker_images'
+  containerName: 'lms-container'
+  awsEc2SshConnection: 'aws-vm-ssh'
+  ec2User: 'ec2-user'
 
 steps:
   - checkout: self
@@ -23,10 +23,10 @@ steps:
     displayName: 'Build Docker Image'
     inputs:
       command: 'build'
-      Dockerfile: 'Dockerfile' # Dockerfile in root, copies ./src/*
+      Dockerfile: 'Dockerfile'
       repository: '$(imageName)'
       tags: '$(imageTag)'
-      arguments: '--no-cache' # Ensure fresh build
+      arguments: '--no-cache'
 
   - script: |
       mkdir -p $(outputFolder)
@@ -56,19 +56,23 @@ steps:
       sshEndpoint: '$(awsEc2SshConnection)'
       runOptions: 'inline'
       inline: |
-        # Redirect output to a log file for debugging
-        exec > /home/ubuntu/docker_deploy.log 2>&1
+        # Redirect output to a log file in ec2-user's home directory
+        exec > /home/ec2-user/docker_deploy.log 2>&1
         
         # Ensure remote directory exists
-        sudo mkdir -p $(remotePath)
+        sudo mkdir -p $(remotePath) || { echo "Error: Failed to create directory $(remotePath)"; exit 1; }
+        sudo chown ec2-user:ec2-user $(remotePath)
         echo "Directory $(remotePath) ensured."
         
-        # Verify X11 environment
+        # Install Xvfb if not present
         echo "Checking X11 environment..."
         if ! command -v Xvfb > /dev/null; then
-          echo "Error: Xvfb not installed. Please install xvfb."
-          exit 1
+          echo "Installing Xvfb..."
+          sudo apt update
+          sudo apt install xvfb -y || { echo "Error: Failed to install xvfb."; exit 1; }
         fi
+        
+        # Start Xvfb if not running
         if ! pgrep Xvfb > /dev/null; then
           echo "Starting Xvfb on display :99..."
           sudo Xvfb :99 -screen 0 1024x768x16 &
@@ -89,10 +93,10 @@ steps:
         if ! command -v x11vnc > /dev/null; then
           echo "Installing x11vnc..."
           sudo apt update
-          sudo apt install x11vnc -y
+          sudo apt install x11vnc -y || { echo "Error: Failed to install x11vnc."; exit 1; }
         fi
         echo "Starting x11vnc on display :99..."
-        sudo pkill x11vnc || true  # Stop any existing x11vnc
+        sudo pkill x11vnc || true
         sudo x11vnc -display :99 -forever -nopw &
         sleep 2
         if ! pgrep x11vnc > /dev/null; then
@@ -144,4 +148,4 @@ steps:
           $(imageName):$(imageTag) || { echo "Error starting container"; exit 1; }
         
         echo "Container started successfully."
-      readyTimeout: '60000' # Increased timeout for SSH reliability
+      readyTimeout: '60000'
