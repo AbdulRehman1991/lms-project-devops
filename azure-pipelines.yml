@@ -17,7 +17,7 @@ steps:
     displayName: 'Build Docker image'
     inputs:
       command: 'build'
-      Dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+      Dockerfile: '$(Build.SourcesDirectory)/src/Dockerfile'
       repository: '$(imageName)'
       tags: '$(imageTag)'
 
